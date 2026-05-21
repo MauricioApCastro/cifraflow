@@ -1,16 +1,12 @@
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont, QKeySequence, QShortcut, QTextOption
+from PyQt6.QtGui import QColor, QFont, QKeySequence, QShortcut, QTextCharFormat, QTextCursor
 from PyQt6.QtWidgets import (
     QFileDialog,
-    QHBoxLayout,
     QLabel,
     QMainWindow,
     QProgressBar,
     QPushButton,
-    QSlider,
     QTextEdit,
     QToolBar,
-    QWidget,
 )
 
 
@@ -19,70 +15,41 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("CifraFlow")
         self.resize(1200, 700)
-        self.font_size = 18
 
         self.open_button = QPushButton("Abrir Música")
-        self.start_button = QPushButton("Iniciar")
-        self.pause_button = QPushButton("Pausar")
-        self.decrease_font_button = QPushButton("-")
-        self.increase_font_button = QPushButton("+")
-        self.fullscreen_button = QPushButton("Tela Cheia")
         self.microphone_button = QPushButton("Microfone")
+        self.stage_mode_button = QPushButton("Modo Palco")
         self.microphone_status = QLabel("Microfone desligado")
-        self.sound_status = QLabel("Silêncio")
+        self.voice_status = QLabel("Aguardando voz")
+        self.captured_text = QLabel("Captado: -")
+        self.normal_font_size = 32
+        self.stage_font_size = 46
 
         self.volume_bar = QProgressBar()
         self.volume_bar.setRange(0, 100)
         self.volume_bar.setValue(0)
         self.volume_bar.setTextVisible(False)
-        self.volume_bar.setFixedWidth(120)
-
-        self.speed_slider = QSlider(Qt.Orientation.Horizontal)
-        self.speed_slider.setRange(1, 100)
-        self.speed_slider.setValue(50)
-        self.speed_slider.setFixedWidth(160)
-
-        self.microphone_sensitivity_slider = QSlider(Qt.Orientation.Horizontal)
-        self.microphone_sensitivity_slider.setRange(1, 100)
-        self.microphone_sensitivity_slider.setValue(20)
-        self.microphone_sensitivity_slider.setFixedWidth(160)
+        self.volume_bar.setFixedWidth(180)
 
         self.song_text = QTextEdit()
         self.song_text.setReadOnly(True)
-        self.song_text.setFont(QFont("Consolas", self.font_size))
-        self.center_text_document()
+        self.song_text.setFont(QFont("Consolas", self.normal_font_size))
+        self.stage_mode_shortcut = QShortcut(QKeySequence("F11"), self)
 
-        self.fullscreen_shortcut = QShortcut(QKeySequence("F11"), self)
+        self.toolbar = QToolBar()
+        self.toolbar.setMovable(False)
+        self.toolbar.addWidget(self.open_button)
+        self.toolbar.addWidget(self.microphone_button)
+        self.toolbar.addWidget(self.stage_mode_button)
+        self.toolbar.addWidget(self.microphone_status)
+        self.toolbar.addWidget(self.voice_status)
+        self.toolbar.addWidget(self.captured_text)
+        self.toolbar.addWidget(self.volume_bar)
 
-        toolbar = QToolBar()
-        toolbar.setMovable(False)
-        toolbar.addWidget(self.open_button)
-        toolbar.addWidget(self.start_button)
-        toolbar.addWidget(self.pause_button)
-        toolbar.addWidget(self.decrease_font_button)
-        toolbar.addWidget(self.increase_font_button)
-        toolbar.addWidget(self.fullscreen_button)
-        toolbar.addWidget(self.microphone_button)
-        toolbar.addWidget(self.microphone_status)
-        toolbar.addWidget(self.sound_status)
-        toolbar.addWidget(self.volume_bar)
-
-        speed_container = QWidget()
-        speed_layout = QHBoxLayout(speed_container)
-        speed_layout.setContentsMargins(8, 0, 0, 0)
-        speed_layout.addWidget(QLabel("Velocidade"))
-        speed_layout.addWidget(self.speed_slider)
-        toolbar.addWidget(speed_container)
-
-        sensitivity_container = QWidget()
-        sensitivity_layout = QHBoxLayout(sensitivity_container)
-        sensitivity_layout.setContentsMargins(8, 0, 0, 0)
-        sensitivity_layout.addWidget(QLabel("Sensibilidade do microfone"))
-        sensitivity_layout.addWidget(self.microphone_sensitivity_slider)
-        toolbar.addWidget(sensitivity_container)
-
-        self.addToolBar(toolbar)
+        self.addToolBar(self.toolbar)
         self.setCentralWidget(self.song_text)
+        self.stage_mode_button.clicked.connect(self.toggle_stage_mode)
+        self.stage_mode_shortcut.activated.connect(self.toggle_stage_mode)
 
     def choose_text_file(self) -> str:
         file_path, _ = QFileDialog.getOpenFileName(
@@ -96,29 +63,76 @@ class MainWindow(QMainWindow):
     def set_song_content(self, title: str, content: str):
         self.setWindowTitle(f"CifraFlow - {title}")
         self.song_text.setPlainText(content)
-        self.center_text_document()
+        self.clear_highlight()
 
-    def increase_font_size(self):
-        self.set_font_size(self.font_size + 2)
+    def set_microphone_status(self, status: str):
+        self.microphone_status.setText(status)
 
-    def decrease_font_size(self):
-        self.set_font_size(self.font_size - 2)
+    def set_voice_status(self, status: str):
+        self.voice_status.setText(status)
 
-    def set_font_size(self, size: int):
-        self.font_size = max(10, min(48, size))
-        font = self.song_text.font()
-        font.setPointSize(self.font_size)
-        self.song_text.setFont(font)
+    def set_captured_text(self, text: str):
+        if not text:
+            self.captured_text.setText("Captado: -")
+            return
 
-    def center_text_document(self):
-        text_options = self.song_text.document().defaultTextOption()
-        text_options.setWrapMode(QTextOption.WrapMode.WordWrap)
-        text_options.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        self.song_text.document().setDefaultTextOption(text_options)
+        display_text = text[:80] + "..." if len(text) > 80 else text
+        self.captured_text.setText(f"Captado: {display_text}")
 
-    def toggle_fullscreen(self):
+    def highlight_stanza(self, start_line: int, end_line: int):
+        selections = []
+        selection_format = QTextCharFormat()
+        selection_format.setBackground(QColor("#3a5f8f"))
+        selection_format.setForeground(QColor("#ffffff"))
+
+        for line_index in range(start_line, end_line + 1):
+            block = self.song_text.document().findBlockByLineNumber(line_index)
+            if not block.isValid():
+                continue
+
+            cursor = QTextCursor(block)
+            cursor.select(QTextCursor.SelectionType.LineUnderCursor)
+
+            selection = QTextEdit.ExtraSelection()
+            selection.cursor = cursor
+            selection.format = selection_format
+            selections.append(selection)
+
+        block = self.song_text.document().findBlockByLineNumber(start_line)
+        if block.isValid():
+            cursor = QTextCursor(block)
+            self.song_text.setTextCursor(cursor)
+
+        self.song_text.setExtraSelections(selections)
+        self.center_line(start_line)
+
+    def center_line(self, line_index: int):
+        block = self.song_text.document().findBlockByLineNumber(line_index)
+        if not block.isValid():
+            return
+
+        block_top = self.song_text.document().documentLayout().blockBoundingRect(block).top()
+        scroll_bar = self.song_text.verticalScrollBar()
+        center_offset = self.song_text.viewport().height() // 3
+        scroll_bar.setValue(int(block_top - center_offset))
+
+    def clear_highlight(self):
+        self.song_text.setExtraSelections([])
+
+    def toggle_stage_mode(self):
         if self.isFullScreen():
             self.showNormal()
+            self.toolbar.show()
+            self.set_font_size(self.normal_font_size)
+            self.stage_mode_button.setText("Modo Palco")
             return
 
         self.showFullScreen()
+        self.toolbar.hide()
+        self.set_font_size(self.stage_font_size)
+        self.stage_mode_button.setText("Sair do Palco")
+
+    def set_font_size(self, size: int):
+        font = self.song_text.font()
+        font.setPointSize(size)
+        self.song_text.setFont(font)

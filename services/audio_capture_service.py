@@ -3,6 +3,7 @@ from PyQt6.QtCore import QObject, pyqtSignal
 
 class AudioCaptureService(QObject):
     volume_changed = pyqtSignal(int)
+    audio_data_changed = pyqtSignal(object)
     error_occurred = pyqtSignal(str)
 
     def __init__(self):
@@ -10,6 +11,7 @@ class AudioCaptureService(QObject):
         self.stream = None
         self.numpy = None
         self.sounddevice = None
+        self.sample_rate = 44100
 
     def start(self):
         if self.is_active():
@@ -34,7 +36,7 @@ class AudioCaptureService(QObject):
             self.stream = self.sounddevice.InputStream(
                 device=device_index,
                 channels=1,
-                samplerate=44100,
+                samplerate=self.sample_rate,
                 blocksize=1024,
                 callback=self.process_audio,
             )
@@ -66,6 +68,7 @@ class AudioCaptureService(QObject):
         rms = self.numpy.sqrt(self.numpy.mean(self.numpy.square(indata)))
         volume = min(100, int(rms * 500))
         self.volume_changed.emit(volume)
+        self.audio_data_changed.emit(indata.copy())
 
     def find_default_input_device(self) -> int | None:
         input_devices = self.list_input_devices()
