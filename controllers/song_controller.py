@@ -1,4 +1,5 @@
 from pathlib import Path
+from difflib import SequenceMatcher
 import re
 import unicodedata
 
@@ -43,20 +44,22 @@ class SongController:
             self.view.set_microphone_status("Microfone desligado")
             return
 
+        self.view.clear_transcription_test()
         self.audio_capture.start()
         if self.audio_capture.is_active():
             self.voice_transcription.start()
             self.view.set_microphone_status("Microfone ligado")
-            self.view.set_voice_status("Aguardando frase")
+            self.view.set_voice_status("Comparando com a letra")
 
     def follow_lyrics_from_voice(self, transcript: str):
         self.view.set_captured_text(transcript)
+        self.view.add_transcription_test(transcript)
         spoken_words = self.normalize_text(transcript).split()
         if not spoken_words or not self.lyric_lines:
             self.view.set_voice_status("Não reconhecido")
             return
 
-        if not self.current_line_finished(spoken_words):
+        if not self.current_line_matches_voice(spoken_words):
             self.view.set_voice_status("Aguardando frase")
             return
 
@@ -64,12 +67,76 @@ class SongController:
         self.highlight_current_line()
         self.view.set_voice_status("Próxima frase marcada")
 
-    def current_line_finished(self, spoken_words: list[str]) -> bool:
+    def current_line_matches_voice(self, spoken_words: list[str]) -> bool:
         current_words = self.lyric_lines[self.current_line_position]["words"]
         if not current_words:
             return False
 
-        return current_words[-1] in spoken_words
+        if len(current_words) <= 2:
+            return self.line_match_score(current_words, spoken_words) >= 1
+
+        first_and_last_match = self.lyric_words_appear_in_order(
+            current_words,
+            spoken_words,
+            [0, len(current_words) - 1],
+        )
+        return first_and_last_match or self.line_match_score(current_words, spoken_words) >= 0.6
+
+    def lyric_words_appear_in_order(
+        self,
+        lyric_words: list[str],
+        spoken_words: list[str],
+        target_indexes: list[int],
+    ) -> bool:
+        target_position = 0
+
+        for spoken_word in spoken_words:
+            target_word = lyric_words[target_indexes[target_position]]
+            if not self.words_are_similar(spoken_word, target_word):
+                continue
+
+            target_position += 1
+            if target_position == len(target_indexes):
+                return True
+
+        return False
+
+    def line_match_score(self, lyric_words: list[str], spoken_words: list[str]) -> float:
+        matched_words = 0
+        search_start = 0
+
+        for lyric_word in lyric_words:
+            match_index = self.find_similar_word_index(spoken_words, lyric_word, search_start)
+            if match_index is None:
+                continue
+
+            matched_words += 1
+            search_start = match_index + 1
+
+        return matched_words / len(lyric_words)
+
+    def find_similar_word_index(
+        self,
+        spoken_words: list[str],
+        lyric_word: str,
+        search_start: int,
+    ) -> int | None:
+        for index in range(search_start, len(spoken_words)):
+            if self.words_are_similar(spoken_words[index], lyric_word):
+                return index
+
+        return None
+
+    def words_are_similar(self, spoken_word: str, target_word: str) -> bool:
+        if spoken_word == target_word:
+            return True
+
+        shortest_size = min(len(spoken_word), len(target_word))
+        if shortest_size <= 3:
+            return spoken_word[:2] == target_word[:2]
+
+        similarity = SequenceMatcher(None, spoken_word, target_word).ratio()
+        return similarity >= 0.78
 
     def build_lyric_lines(self, content: str) -> list[dict]:
         lyric_lines = []
@@ -127,4 +194,5 @@ class SongController:
 
     def handle_transcription_error(self, message: str):
         self.view.set_voice_status("Aguardando frase")
+        self.view.add_transcription_test(message)
         print(message)

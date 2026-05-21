@@ -12,6 +12,8 @@ class AudioCaptureService(QObject):
         self.numpy = None
         self.sounddevice = None
         self.sample_rate = 44100
+        self.voice_low_frequency = 85
+        self.voice_high_frequency = 3400
 
     def start(self):
         if self.is_active():
@@ -65,10 +67,24 @@ class AudioCaptureService(QObject):
         if status:
             print(f"Aviso do microfone: {status}")
 
-        rms = self.numpy.sqrt(self.numpy.mean(self.numpy.square(indata)))
+        voice_audio = self.filter_voice_frequencies(indata)
+        rms = self.numpy.sqrt(self.numpy.mean(self.numpy.square(voice_audio)))
         volume = min(100, int(rms * 500))
         self.volume_changed.emit(volume)
-        self.audio_data_changed.emit(indata.copy())
+        self.audio_data_changed.emit(voice_audio.copy())
+
+    def filter_voice_frequencies(self, audio_data):
+        audio = audio_data.reshape(-1)
+        spectrum = self.numpy.fft.rfft(audio)
+        frequencies = self.numpy.fft.rfftfreq(len(audio), d=1 / self.sample_rate)
+        voice_mask = (
+            (frequencies >= self.voice_low_frequency)
+            & (frequencies <= self.voice_high_frequency)
+        )
+        spectrum[~voice_mask] = 0
+        filtered_audio = self.numpy.fft.irfft(spectrum, n=len(audio))
+        filtered_audio = self.numpy.clip(filtered_audio, -1.0, 1.0)
+        return filtered_audio.astype(audio_data.dtype).reshape(audio_data.shape)
 
     def find_default_input_device(self) -> int | None:
         input_devices = self.list_input_devices()

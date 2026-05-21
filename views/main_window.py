@@ -3,10 +3,13 @@ from PyQt6.QtWidgets import (
     QFileDialog,
     QLabel,
     QMainWindow,
+    QSizePolicy,
     QProgressBar,
     QPushButton,
     QTextEdit,
     QToolBar,
+    QVBoxLayout,
+    QWidget,
 )
 
 
@@ -22,6 +25,12 @@ class MainWindow(QMainWindow):
         self.microphone_status = QLabel("Microfone desligado")
         self.voice_status = QLabel("Aguardando voz")
         self.captured_text = QLabel("Captado: -")
+        self.captured_text.setWordWrap(True)
+        self.captured_text.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.transcription_test = QTextEdit()
+        self.transcription_test.setReadOnly(True)
+        self.transcription_test.setFixedHeight(90)
+        self.transcription_test.setPlaceholderText("Teste de transcrição: fale uma frase com o microfone ligado")
         self.normal_font_size = 32
         self.stage_font_size = 46
 
@@ -43,11 +52,18 @@ class MainWindow(QMainWindow):
         self.toolbar.addWidget(self.stage_mode_button)
         self.toolbar.addWidget(self.microphone_status)
         self.toolbar.addWidget(self.voice_status)
-        self.toolbar.addWidget(self.captured_text)
         self.toolbar.addWidget(self.volume_bar)
 
+        self.content = QWidget()
+        self.content_layout = QVBoxLayout(self.content)
+        self.content_layout.setContentsMargins(12, 8, 12, 0)
+        self.content_layout.setSpacing(8)
+        self.content_layout.addWidget(self.captured_text)
+        self.content_layout.addWidget(self.transcription_test)
+        self.content_layout.addWidget(self.song_text)
+
         self.addToolBar(self.toolbar)
-        self.setCentralWidget(self.song_text)
+        self.setCentralWidget(self.content)
         self.stage_mode_button.clicked.connect(self.toggle_stage_mode)
         self.stage_mode_shortcut.activated.connect(self.toggle_stage_mode)
 
@@ -76,8 +92,16 @@ class MainWindow(QMainWindow):
             self.captured_text.setText("Captado: -")
             return
 
-        display_text = text[:80] + "..." if len(text) > 80 else text
-        self.captured_text.setText(f"Captado: {display_text}")
+        self.captured_text.setText(f"Captado: {text}")
+
+    def clear_transcription_test(self):
+        self.transcription_test.clear()
+
+    def add_transcription_test(self, text: str):
+        if not text:
+            return
+
+        self.transcription_test.append(text)
 
     def highlight_stanza(self, start_line: int, end_line: int):
         selections = []
