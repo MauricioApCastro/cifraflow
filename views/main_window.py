@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QProgressBar,
     QPushButton,
     QSlider,
     QTextEdit,
@@ -26,6 +27,14 @@ class MainWindow(QMainWindow):
         self.decrease_font_button = QPushButton("-")
         self.increase_font_button = QPushButton("+")
         self.fullscreen_button = QPushButton("Tela Cheia")
+        self.microphone_button = QPushButton("Microfone")
+        self.microphone_status = QLabel("Microfone desligado")
+
+        self.volume_bar = QProgressBar()
+        self.volume_bar.setRange(0, 100)
+        self.volume_bar.setValue(0)
+        self.volume_bar.setTextVisible(False)
+        self.volume_bar.setFixedWidth(120)
 
         self.speed_slider = QSlider(Qt.Orientation.Horizontal)
         self.speed_slider.setRange(1, 100)
@@ -47,6 +56,9 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(self.decrease_font_button)
         toolbar.addWidget(self.increase_font_button)
         toolbar.addWidget(self.fullscreen_button)
+        toolbar.addWidget(self.microphone_button)
+        toolbar.addWidget(self.microphone_status)
+        toolbar.addWidget(self.volume_bar)
 
         speed_container = QWidget()
         speed_layout = QHBoxLayout(speed_container)

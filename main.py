@@ -37,6 +37,14 @@ def main():
             margin: -5px 0;
             width: 12px;
         }
+        QProgressBar {
+            background-color: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            border-radius: 4px;
+        }
+        QProgressBar::chunk {
+            background-color: #4caf50;
+        }
         QTextEdit {
             background-color: #121212;
             border: none;
