@@ -29,6 +29,7 @@ class MainWindow(QMainWindow):
         self.fullscreen_button = QPushButton("Tela Cheia")
         self.microphone_button = QPushButton("Microfone")
         self.microphone_status = QLabel("Microfone desligado")
+        self.sound_status = QLabel("Silêncio")
 
         self.volume_bar = QProgressBar()
         self.volume_bar.setRange(0, 100)
@@ -40,6 +41,11 @@ class MainWindow(QMainWindow):
         self.speed_slider.setRange(1, 100)
         self.speed_slider.setValue(50)
         self.speed_slider.setFixedWidth(160)
+
+        self.microphone_sensitivity_slider = QSlider(Qt.Orientation.Horizontal)
+        self.microphone_sensitivity_slider.setRange(1, 100)
+        self.microphone_sensitivity_slider.setValue(20)
+        self.microphone_sensitivity_slider.setFixedWidth(160)
 
         self.song_text = QTextEdit()
         self.song_text.setReadOnly(True)
@@ -58,6 +64,7 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(self.fullscreen_button)
         toolbar.addWidget(self.microphone_button)
         toolbar.addWidget(self.microphone_status)
+        toolbar.addWidget(self.sound_status)
         toolbar.addWidget(self.volume_bar)
 
         speed_container = QWidget()
@@ -66,6 +73,13 @@ class MainWindow(QMainWindow):
         speed_layout.addWidget(QLabel("Velocidade"))
         speed_layout.addWidget(self.speed_slider)
         toolbar.addWidget(speed_container)
+
+        sensitivity_container = QWidget()
+        sensitivity_layout = QHBoxLayout(sensitivity_container)
+        sensitivity_layout.setContentsMargins(8, 0, 0, 0)
+        sensitivity_layout.addWidget(QLabel("Sensibilidade do microfone"))
+        sensitivity_layout.addWidget(self.microphone_sensitivity_slider)
+        toolbar.addWidget(sensitivity_container)
 
         self.addToolBar(toolbar)
         self.setCentralWidget(self.song_text)
