@@ -76,7 +76,9 @@ class AudioCaptureService(QObject):
             return None
 
         default_device = self.sounddevice.default.device
-        default_input_index = default_device[0] if isinstance(default_device, (list, tuple)) else default_device
+        default_input_index = (
+            default_device[0] if isinstance(default_device, (list, tuple)) else default_device
+        )
 
         for index, device in input_devices:
             if index == default_input_index:

@@ -1,6 +1,6 @@
-from pathlib import Path
 import re
 import unicodedata
+from pathlib import Path
 
 from services.audio_capture_service import AudioCaptureService
 from services.voice_transcription_service import VoiceTranscriptionService
@@ -76,11 +76,7 @@ class SongController:
 
         for line_index, line in enumerate(content.splitlines()):
             clean_line = line.strip()
-            if (
-                not clean_line
-                or self.is_chord_line(clean_line)
-                or self.is_marker_line(clean_line)
-            ):
+            if not clean_line or self.is_chord_line(clean_line) or self.is_marker_line(clean_line):
                 continue
 
             words = self.normalize_text(clean_line).split()
